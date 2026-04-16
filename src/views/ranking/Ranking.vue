@@ -10,7 +10,7 @@ const tabs = [
   { key: 'score', label: '总分' },
   { key: 'winRate', label: '胜率' },
   { key: 'games', label: '局数' },
-  { key: 'expense', label: '支出' },
+  { key: 'expense', label: '收益' },
 ]
 
 onMounted(async () => {
@@ -53,7 +53,10 @@ function getValue(player) {
       if (!player.total_games) return '0%'
       return Math.round((player.win_games / player.total_games) * 100) + '%'
     case 'games': return (player.total_games || 0) + ' 局'
-    case 'expense': return (player.total_expense || 0).toFixed(0) + ' 元'
+    case 'expense': {
+      const v = player.total_expense || 0
+      return (v > 0 ? '+' : '') + v.toFixed(2) + ' 元'
+    }
     default: return ''
   }
 }
@@ -91,7 +94,7 @@ function getMedal(index) {
           </div>
           <div class="rank-name">{{ player.nickname }}</div>
         </div>
-        <div class="rank-value">{{ getValue(player) }}</div>
+        <div class="rank-value" :class="{ win: activeTab === 'expense' && (player.total_expense || 0) > 0, lose: activeTab === 'expense' && (player.total_expense || 0) < 0 }">{{ getValue(player) }}</div>
       </div>
     </div>
   </div>
@@ -123,6 +126,8 @@ function getMedal(index) {
 }
 .rank-name { font-weight: 600; font-size: 15px; }
 .rank-value { font-weight: 700; font-size: 15px; color: var(--primary); }
+.rank-value.win { color: var(--success); }
+.rank-value.lose { color: var(--danger); }
 .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
 .empty { text-align: center; padding: 60px; color: var(--text-secondary); }
 </style>

@@ -52,6 +52,7 @@ export const useGameStore = defineStore('game', {
       // 计算结算
       const totalWinAmount = totalWinScore * 5
       const distributable = totalWinAmount - mealCost
+      const settlementMap = {}
 
       if (distributable > 0) {
         let winnerRatio, loserRatio
@@ -67,9 +68,10 @@ export const useGameStore = defineStore('game', {
           let amount = 0
           if (s.score > 0) amount = winnerPool * (s.score / totalWinScore)
           else if (s.score < 0) amount = loserPool * (Math.abs(s.score) / totalLoseScore)
+          settlementMap[s.playerId] = Math.round(amount * 100) / 100
           await supabase
             .from('game_players')
-            .update({ settlement_amount: Math.round(amount * 100) / 100 })
+            .update({ settlement_amount: settlementMap[s.playerId] })
             .eq('game_id', gameId)
             .eq('player_id', s.playerId)
         }
@@ -105,7 +107,7 @@ export const useGameStore = defineStore('game', {
             total_games: (player.total_games || 0) + 1,
             win_games: s.score > 0 ? (player.win_games || 0) + 1 : player.win_games || 0,
             seat_win_rate: seatWinRate,
-            total_expense: (player.total_expense || 0) + (mealCost / scores.length),
+            total_expense: (player.total_expense || 0) + (s.score > 0 ? (settlementMap[s.playerId] || 0) : -(Math.abs(s.score) * 5 - (settlementMap[s.playerId] || 0))),
           })
           .eq('id', s.playerId)
       }

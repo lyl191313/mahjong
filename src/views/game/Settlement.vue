@@ -22,12 +22,13 @@ onMounted(async () => {
   // 从 query 读取分数
   const scoreData = JSON.parse(decodeURIComponent(route.query.scores || '[]'))
   scores.value = scoreData.map(s => {
-    const gp = gameStore.gamePlayers.find(g => g.player_id === s.playerId && !g.is_replaced)
+    const gp = gameStore.gamePlayers.find(g => g.player_id === s.playerId)
     return {
       playerId: s.playerId,
       nickname: gp?.players?.nickname || '未知',
       seat: gp?.seat || '',
       score: s.score,
+      isReplaced: gp?.is_replaced || false,
     }
   })
   loading.value = false
@@ -94,8 +95,8 @@ async function submit() {
       <div class="card">
         <div class="section-label">得分概览</div>
         <div class="score-overview">
-          <div v-for="s in scores" :key="s.playerId" class="score-row">
-            <span class="name">{{ s.nickname }}（{{ seatLabels[s.seat] }}）</span>
+          <div v-for="s in scores" :key="s.playerId" class="score-row" :class="{ replaced: s.isReplaced }">
+            <span class="name">{{ s.nickname }}（{{ seatLabels[s.seat] }}）<span v-if="s.isReplaced" class="replaced-tag">已替换</span></span>
             <span class="score" :class="{ win: s.score > 0, lose: s.score < 0 }">
               {{ s.score > 0 ? '+' : '' }}{{ s.score }}
             </span>
@@ -200,4 +201,9 @@ async function submit() {
 }
 .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.score-row.replaced { opacity: 0.6; }
+.replaced-tag {
+  display: inline-block; background: #fef3c7; color: #d97706;
+  padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-left: 4px;
+}
 </style>

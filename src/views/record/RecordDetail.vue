@@ -134,7 +134,12 @@ const ratioInfo = computed(() => {
               </div>
               <div class="player-name">{{ gp.players?.nickname || '未知' }}</div>
             </div>
-            <div class="score">冻结 {{ gp.score || 0 }}分</div>
+            <div class="player-right">
+              <div class="score">冻结 {{ gp.score || 0 }}分</div>
+              <div class="settle-amount" v-if="gp.settlement_amount">
+                分得 {{ gp.settlement_amount }} 元
+              </div>
+            </div>
           </div>
         </template>
       </div>

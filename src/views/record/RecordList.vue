@@ -54,11 +54,15 @@ function formatDate(dateStr) {
 }
 
 function getPlayerNames(game) {
-  return game.game_players
+  const active = game.game_players
     ?.filter(gp => !gp.is_replaced)
     ?.map(gp => gp.players?.nickname)
-    ?.filter(Boolean)
-    ?.join('、') || '-'
+    ?.filter(Boolean) || []
+  const replaced = game.game_players
+    ?.filter(gp => gp.is_replaced)
+    ?.map(gp => gp.players?.nickname + '(替)')
+    ?.filter(Boolean) || []
+  return [...active, ...replaced].join('、') || '-'
 }
 </script>
 

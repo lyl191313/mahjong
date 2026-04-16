@@ -105,8 +105,12 @@ async function confirmReplace() {
       <div class="modal">
         <h3 class="modal-title">替换玩家</h3>
         <p class="replace-info">
-          将 <strong>{{ getName(replaceOutPlayer) }}</strong> 替换下场，冻结分数：{{ frozenScore }}
+          将 <strong>{{ getName(replaceOutPlayer) }}</strong> 替换下场
         </p>
+        <div class="form-row">
+          <label>冻结分数</label>
+          <input v-model.number="frozenScore" type="number" class="input" placeholder="输入当前得分" />
+        </div>
         <div class="replace-list">
           <div v-for="p in availablePlayers" :key="p.id"
             class="replace-item" :class="{ selected: selectedReplacer === p.id }"
@@ -175,6 +179,8 @@ async function confirmReplace() {
 }
 .replace-item.selected { border-color: var(--primary); background: var(--primary-light); }
 .empty-hint { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px; }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
 .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

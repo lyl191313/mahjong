@@ -14,14 +14,26 @@ const seatLabels = { east: '东', south: '南', west: '西', north: '北' }
 
 onMounted(async () => {
   await gameStore.loadGame(gameId)
-  scores.value = gameStore.gamePlayers
+  // 被替换的玩家在前（分数已冻结），场上玩家在后
+  const replaced = gameStore.gamePlayers
+    .filter(gp => gp.is_replaced)
+    .map(gp => ({
+      playerId: gp.player_id,
+      nickname: gp.players?.nickname || '未知',
+      seat: gp.seat,
+      score: gp.score || 0,
+      isReplaced: true,
+    }))
+  const active = gameStore.gamePlayers
     .filter(gp => !gp.is_replaced)
     .map(gp => ({
       playerId: gp.player_id,
       nickname: gp.players?.nickname || '未知',
       seat: gp.seat,
       score: '',
+      isReplaced: false,
     }))
+  scores.value = [...replaced, ...active]
   loading.value = false
 })
 
@@ -32,6 +44,9 @@ const totalScore = computed(() => {
 const isValid = computed(() => {
   return scores.value.every(s => s.score !== '' && !isNaN(s.score)) && totalScore.value === 0
 })
+
+const activePlayers = computed(() => scores.value.filter(s => !s.isReplaced))
+const replacedPlayers = computed(() => scores.value.filter(s => s.isReplaced))
 
 function getAvatar(player) {
   const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
@@ -58,8 +73,31 @@ function submit() {
     <div v-if="loading" class="loading">加载中...</div>
 
     <template v-else>
+      <!-- 被替换的玩家（分数已冻结） -->
+      <template v-if="replacedPlayers.length > 0">
+        <div class="section-label">已替换玩家（分数已冻结）</div>
+        <div class="score-list">
+          <div v-for="s in replacedPlayers" :key="s.playerId" class="card score-card replaced">
+            <div class="score-player">
+              <div class="avatar" :style="{ background: getAvatar(s), opacity: 0.6 }">
+                {{ s.nickname.charAt(0) }}
+              </div>
+              <div>
+                <div class="player-name">{{ s.nickname }} <span class="replaced-tag">已替换</span></div>
+                <div class="player-seat">{{ seatLabels[s.seat] }}</div>
+              </div>
+            </div>
+            <div class="score-input-wrap">
+              <div class="frozen-score">{{ s.score }} 分</div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 场上玩家 -->
+      <div v-if="replacedPlayers.length > 0" class="section-label" style="margin-top: 16px;">场上玩家</div>
       <div class="score-list">
-        <div v-for="s in scores" :key="s.playerId" class="card score-card">
+        <div v-for="s in activePlayers" :key="s.playerId" class="card score-card">
           <div class="score-player">
             <div class="avatar" :style="{ background: getAvatar(s) }">
               {{ s.nickname.charAt(0) }}
@@ -79,7 +117,7 @@ function submit() {
       <div class="total-check" :class="{ valid: totalScore === 0, invalid: totalScore !== 0 && scores.every(s => s.score !== '') }">
         <span>得分总和：{{ totalScore }}</span>
         <span v-if="totalScore === 0 && scores.every(s => s.score !== '')" class="check-ok">零和校验通过</span>
-        <span v-else-if="scores.every(s => s.score !== '')" class="check-fail">四人得分之和应为 0</span>
+        <span v-else-if="scores.every(s => s.score !== '')" class="check-fail">所有玩家得分之和应为 0</span>
       </div>
 
       <button class="btn btn-primary btn-block" :disabled="!isValid" @click="submit"
@@ -114,4 +152,11 @@ function submit() {
 .check-fail { margin-left: 8px; }
 .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.section-label { font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; }
+.score-card.replaced { opacity: 0.7; }
+.replaced-tag {
+  display: inline-block; background: #fef3c7; color: #d97706;
+  padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-left: 4px;
+}
+.frozen-score { font-size: 16px; font-weight: 700; color: var(--text-secondary); text-align: center; }
 </style>
