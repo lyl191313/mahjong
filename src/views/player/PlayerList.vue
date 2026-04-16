@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { usePlayersStore } from "../../stores/players.js";
+import { getTier } from "../../lib/tier.js";
 
 const store = usePlayersStore();
 const searchQuery = ref("");
@@ -15,10 +16,13 @@ onMounted(() => {
 });
 
 const filteredPlayers = computed(() => {
-  if (!searchQuery.value) return store.players;
-  return store.players.filter((p) =>
-    p.nickname.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+  let list = [...store.players];
+  if (searchQuery.value) {
+    list = list.filter((p) =>
+      p.nickname.toLowerCase().includes(searchQuery.value.toLowerCase())
+    );
+  }
+  return list.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
 });
 
 function getAvatar(player) {
@@ -98,7 +102,12 @@ function winRate(player) {
             {{ player.nickname.charAt(0) }}
           </div>
           <div class="player-detail">
-            <div class="player-name">{{ player.nickname }}</div>
+            <div class="player-name">
+              {{ player.nickname }}
+              <span class="tier-badge" :style="{ background: getTier(player.total_score).color }">
+                {{ getTier(player.total_score).label }}
+              </span>
+            </div>
             <div class="player-stats">
               <span>{{ player.total_games || 0 }}局</span>
               <span>胜率 {{ winRate(player) }}</span>
@@ -208,6 +217,18 @@ function winRate(player) {
 .player-name {
   font-weight: 600;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tier-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
 }
 .player-stats {
   display: flex;
