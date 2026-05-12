@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../../stores/game.js'
 import { usePlayersStore } from '../../stores/players.js'
+import { getAvatarStyle, showAvatarLetter } from '../../lib/avatarDisplay.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,13 +24,6 @@ onMounted(async () => {
   await gameStore.loadGame(gameId)
   loading.value = false
 })
-
-function getAvatar(player) {
-  const name = player.players?.nickname || player.nickname || '?'
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  const idx = name.charCodeAt(0) % colors.length
-  return colors[idx]
-}
 
 function getName(gp) {
   return gp.players?.nickname || '未知'
@@ -82,8 +76,8 @@ async function confirmReplace() {
           <div v-for="seat in ['north', 'west', 'east', 'south']" :key="seat"
             class="seat-slot" :class="seat">
             <template v-if="getPlayerBySeat(seat)">
-              <div class="seat-avatar" :style="{ background: getAvatar(getPlayerBySeat(seat)) }">
-                {{ getName(getPlayerBySeat(seat)).charAt(0) }}
+              <div class="seat-avatar" :style="getAvatarStyle(getPlayerBySeat(seat))">
+                <span v-if="showAvatarLetter(getPlayerBySeat(seat))">{{ getName(getPlayerBySeat(seat)).charAt(0) }}</span>
               </div>
               <div class="seat-name">{{ getName(getPlayerBySeat(seat)) }}</div>
               <div class="seat-score">{{ getPlayerBySeat(seat).score || 0 }}分</div>
@@ -144,6 +138,7 @@ async function confirmReplace() {
   width: 44px; height: 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 18px; font-weight: 700;
+  overflow: hidden;
 }
 .seat-name { font-size: 14px; font-weight: 600; }
 .seat-score { font-size: 13px; color: var(--text-secondary); }

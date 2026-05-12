@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabase.js'
+import { uploadPlayerAvatarFile } from '../lib/uploadAvatar.js'
 
 export const usePlayersStore = defineStore('players', {
   state: () => ({
@@ -58,6 +59,12 @@ export const usePlayersStore = defineStore('players', {
       const idx = this.players.findIndex(p => p.id === id)
       if (idx !== -1) this.players[idx] = data
       return data
+    },
+
+    /** 上传到 Storage 并写入 players.avatar（公开 URL） */
+    async uploadPlayerAvatar(id, file) {
+      const url = await uploadPlayerAvatarFile(id, file)
+      return this.updatePlayer(id, { avatar: url })
     },
 
     async deletePlayer(id) {

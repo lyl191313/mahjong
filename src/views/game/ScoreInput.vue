@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../../stores/game.js'
+import { getAvatarStyle, showAvatarLetter } from '../../lib/avatarDisplay.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +21,7 @@ onMounted(async () => {
     .map(gp => ({
       playerId: gp.player_id,
       nickname: gp.players?.nickname || '未知',
+      avatar: gp.players?.avatar ?? null,
       seat: gp.seat,
       score: gp.score || 0,
       isReplaced: true,
@@ -29,6 +31,7 @@ onMounted(async () => {
     .map(gp => ({
       playerId: gp.player_id,
       nickname: gp.players?.nickname || '未知',
+      avatar: gp.players?.avatar ?? null,
       seat: gp.seat,
       score: '',
       isReplaced: false,
@@ -47,12 +50,6 @@ const isValid = computed(() => {
 
 const activePlayers = computed(() => scores.value.filter(s => !s.isReplaced))
 const replacedPlayers = computed(() => scores.value.filter(s => s.isReplaced))
-
-function getAvatar(player) {
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  const idx = player.nickname.charCodeAt(0) % colors.length
-  return colors[idx]
-}
 
 function submit() {
   if (!isValid.value) return
@@ -79,8 +76,8 @@ function submit() {
         <div class="score-list">
           <div v-for="s in replacedPlayers" :key="s.playerId" class="card score-card replaced">
             <div class="score-player">
-              <div class="avatar" :style="{ background: getAvatar(s), opacity: 0.6 }">
-                {{ s.nickname.charAt(0) }}
+              <div class="avatar avatar-row" :class="{ 'is-replaced': s.isReplaced }" :style="getAvatarStyle(s)">
+                <span v-if="showAvatarLetter(s)">{{ s.nickname.charAt(0) }}</span>
               </div>
               <div>
                 <div class="player-name">{{ s.nickname }} <span class="replaced-tag">已替换</span></div>
@@ -99,8 +96,8 @@ function submit() {
       <div class="score-list">
         <div v-for="s in activePlayers" :key="s.playerId" class="card score-card">
           <div class="score-player">
-            <div class="avatar" :style="{ background: getAvatar(s) }">
-              {{ s.nickname.charAt(0) }}
+            <div class="avatar avatar-row" :style="getAvatarStyle(s)">
+              <span v-if="showAvatarLetter(s)">{{ s.nickname.charAt(0) }}</span>
             </div>
             <div>
               <div class="player-name">{{ s.nickname }}</div>
@@ -136,6 +133,10 @@ function submit() {
   width: 40px; height: 40px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 16px; font-weight: 700;
+  overflow: hidden;
+}
+.avatar-row.is-replaced {
+  opacity: 0.6;
 }
 .player-name { font-weight: 600; font-size: 15px; }
 .player-seat { font-size: 12px; color: var(--text-secondary); }

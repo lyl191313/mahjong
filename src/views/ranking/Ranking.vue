@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../../lib/supabase.js";
 import { getTier, TIER_RULES } from "../../lib/tier.js";
 import { getDataDrivenFortune } from "../../lib/fortune.js";
+import { getAvatarStyle, showAvatarLetter } from "../../lib/avatarDisplay.js";
 
 const loading = ref(true);
 const players = ref([]);
@@ -120,19 +121,6 @@ const rankedPlayers = computed(() => {
   }
 });
 
-function getAvatar(player) {
-  const colors = [
-    "#4361ee",
-    "#ef4444",
-    "#22c55e",
-    "#f59e0b",
-    "#8b5cf6",
-    "#ec4899",
-  ];
-  const idx = player.nickname.charCodeAt(0) % colors.length;
-  return colors[idx];
-}
-
 function getValue(player) {
   switch (activeTab.value) {
     case "score":
@@ -241,8 +229,10 @@ function formatMoney(n) {
           {{ getMedal(index) }}
         </div>
         <div class="rank-info">
-          <div class="avatar" :style="{ background: getAvatar(player) }">
-            {{ player.nickname.charAt(0) }}
+          <div class="avatar" :style="getAvatarStyle(player)">
+            <span v-if="showAvatarLetter(player)">{{
+              player.nickname.charAt(0)
+            }}</span>
           </div>
           <div class="rank-name">{{ player.nickname }}</div>
         </div>
@@ -547,6 +537,7 @@ function formatMoney(n) {
   color: #fff;
   font-size: 16px;
   font-weight: 700;
+  overflow: hidden;
 }
 .rank-name {
   font-weight: 600;

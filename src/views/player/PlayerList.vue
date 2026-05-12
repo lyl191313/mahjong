@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { usePlayersStore } from "../../stores/players.js";
 import { getTier } from "../../lib/tier.js";
+import { getAvatarStyle, showAvatarLetter } from "../../lib/avatarDisplay.js";
 
 const store = usePlayersStore();
 const searchQuery = ref("");
@@ -10,6 +11,8 @@ const showEditModal = ref(false);
 const newNickname = ref("");
 const editingPlayer = ref(null);
 const editNickname = ref("");
+const avatarFileInput = ref(null);
+const avatarUploading = ref(false);
 
 onMounted(() => {
   store.fetchPlayers();
@@ -25,20 +28,6 @@ const filteredPlayers = computed(() => {
   return list.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
 });
 
-function getAvatar(player) {
-  if (player.avatar) return player.avatar;
-  const colors = [
-    "#4361ee",
-    "#ef4444",
-    "#22c55e",
-    "#f59e0b",
-    "#8b5cf6",
-    "#ec4899",
-  ];
-  const idx = player.nickname.charCodeAt(0) % colors.length;
-  return colors[idx];
-}
-
 async function addPlayer() {
   if (!newNickname.value.trim()) return;
   await store.addPlayer(newNickname.value.trim());
@@ -47,9 +36,43 @@ async function addPlayer() {
 }
 
 function openEdit(player) {
-  editingPlayer.value = player;
+  editingPlayer.value = { ...player };
   editNickname.value = player.nickname;
   showEditModal.value = true;
+}
+
+function triggerAvatarPick() {
+  avatarFileInput.value?.click();
+}
+
+async function onAvatarFileChange(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file || !editingPlayer.value) return;
+  avatarUploading.value = true;
+  try {
+    const data = await store.uploadPlayerAvatar(editingPlayer.value.id, file);
+    editingPlayer.value = { ...editingPlayer.value, avatar: data.avatar };
+  } catch (err) {
+    alert(err.message || "上传失败，请检查 Storage 桶 avatars 与策略");
+  } finally {
+    avatarUploading.value = false;
+  }
+}
+
+async function clearAvatar() {
+  if (!editingPlayer.value) return;
+  avatarUploading.value = true;
+  try {
+    const data = await store.updatePlayer(editingPlayer.value.id, {
+      avatar: null,
+    });
+    editingPlayer.value = { ...editingPlayer.value, avatar: data.avatar };
+  } catch (err) {
+    alert(err.message || "清除失败");
+  } finally {
+    avatarUploading.value = false;
+  }
 }
 
 async function saveEdit() {
@@ -98,8 +121,10 @@ function winRate(player) {
         class="card player-card"
       >
         <div class="player-info">
-          <div class="avatar" :style="{ background: getAvatar(player) }">
-            {{ player.nickname.charAt(0) }}
+          <div class="avatar" :style="getAvatarStyle(player)">
+            <span v-if="showAvatarLetter(player)">{{
+              player.nickname.charAt(0)
+            }}</span>
           </div>
           <div class="player-detail">
             <div class="player-name">
@@ -160,6 +185,45 @@ function winRate(player) {
     >
       <div class="modal">
         <h3 class="modal-title">编辑牌友</h3>
+        <div class="edit-avatar-block">
+          <div
+            class="avatar avatar-edit-preview"
+            :style="getAvatarStyle(editingPlayer)"
+          >
+            <span v-if="showAvatarLetter(editingPlayer)">{{
+              (editNickname.trim().charAt(0) ||
+                editingPlayer.nickname.charAt(0) ||
+                "?")
+            }}</span>
+          </div>
+          <div class="edit-avatar-actions">
+            <input
+              ref="avatarFileInput"
+              type="file"
+              class="sr-only"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              @change="onAvatarFileChange"
+            />
+            <button
+              type="button"
+              class="btn btn-sm btn-outline"
+              :disabled="avatarUploading"
+              @click="triggerAvatarPick"
+            >
+              {{ avatarUploading ? "处理中…" : "上传头像" }}
+            </button>
+            <button
+              v-if="editingPlayer?.avatar"
+              type="button"
+              class="btn btn-sm btn-outline"
+              :disabled="avatarUploading"
+              @click="clearAvatar"
+            >
+              清除头像
+            </button>
+          </div>
+          <p class="edit-avatar-hint">JPG / PNG / GIF / WebP，最大 2MB</p>
+        </div>
         <input
           v-model="editNickname"
           class="input"
@@ -210,6 +274,44 @@ function winRate(player) {
   font-size: 18px;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.avatar-edit-preview {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+.edit-avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.edit-avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.edit-avatar-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: center;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .player-detail {
   min-width: 0;

@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import html2canvas from 'html2canvas'
 import { supabase } from '../../lib/supabase.js'
+import { getAvatarStyle, showAvatarLetter } from '../../lib/avatarDisplay.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,12 +38,6 @@ onMounted(async () => {
 
 const activePlayers = computed(() => gamePlayers.value.filter(gp => !gp.is_replaced))
 const replacedPlayers = computed(() => gamePlayers.value.filter(gp => gp.is_replaced))
-
-function getAvatar(gp) {
-  const name = gp.players?.nickname || '?'
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  return colors[name.charCodeAt(0) % colors.length]
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -160,8 +155,8 @@ async function exportScreenshot() {
         <div class="section-label">玩家得分与结算</div>
         <div v-for="gp in activePlayers" :key="gp.id" class="player-row">
           <div class="player-left">
-            <div class="avatar" :style="{ background: getAvatar(gp) }">
-              {{ (gp.players?.nickname || '?').charAt(0) }}
+            <div class="avatar" :style="getAvatarStyle(gp)">
+              <span v-if="showAvatarLetter(gp)">{{ (gp.players?.nickname || '?').charAt(0) }}</span>
             </div>
             <div>
               <div class="player-name">
@@ -187,8 +182,8 @@ async function exportScreenshot() {
           <div class="section-label">被替换玩家（分数已冻结）</div>
           <div v-for="gp in replacedPlayers" :key="gp.id" class="player-row replaced">
             <div class="player-left">
-              <div class="avatar" :style="{ background: getAvatar(gp), opacity: 0.6 }">
-                {{ (gp.players?.nickname || '?').charAt(0) }}
+              <div class="avatar" :style="getAvatarStyle(gp)">
+                <span v-if="showAvatarLetter(gp)">{{ (gp.players?.nickname || '?').charAt(0) }}</span>
               </div>
               <div class="player-name">{{ gp.players?.nickname || '未知' }}</div>
             </div>
@@ -370,6 +365,7 @@ async function exportScreenshot() {
   width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 14px; font-weight: 700;
+  overflow: hidden;
 }
 .player-name { font-weight: 600; font-size: 14px; }
 .seat-tag {

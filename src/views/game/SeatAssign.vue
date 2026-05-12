@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayersStore } from '../../stores/players.js'
 import { useGameStore } from '../../stores/game.js'
+import { getAvatarStyle, showAvatarLetter } from '../../lib/avatarDisplay.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,12 +63,6 @@ function autoAssign(selectedPlayers) {
   players.value = assigned
 }
 
-function getAvatar(player) {
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  const idx = player.nickname.charCodeAt(0) % colors.length
-  return colors[idx]
-}
-
 function getPlayerBySeat(seat) {
   return players.value.find(p => p.seat === seat)
 }
@@ -124,8 +119,8 @@ async function confirmStart() {
         <div class="seat-slot north" :class="{ active: swapFirst === 'north', swapping: swapMode }"
           @click="handleSeatClick('north')">
           <template v-if="getPlayerBySeat('north')">
-            <div class="seat-avatar" :style="{ background: getAvatar(getPlayerBySeat('north')) }">
-              {{ getPlayerBySeat('north').nickname.charAt(0) }}
+            <div class="seat-avatar" :style="getAvatarStyle(getPlayerBySeat('north'))">
+              <span v-if="showAvatarLetter(getPlayerBySeat('north'))">{{ getPlayerBySeat('north').nickname.charAt(0) }}</span>
             </div>
             <div class="seat-name">{{ getPlayerBySeat('north').nickname }}</div>
           </template>
@@ -136,8 +131,8 @@ async function confirmStart() {
         <div class="seat-slot west" :class="{ active: swapFirst === 'west', swapping: swapMode }"
           @click="handleSeatClick('west')">
           <template v-if="getPlayerBySeat('west')">
-            <div class="seat-avatar" :style="{ background: getAvatar(getPlayerBySeat('west')) }">
-              {{ getPlayerBySeat('west').nickname.charAt(0) }}
+            <div class="seat-avatar" :style="getAvatarStyle(getPlayerBySeat('west'))">
+              <span v-if="showAvatarLetter(getPlayerBySeat('west'))">{{ getPlayerBySeat('west').nickname.charAt(0) }}</span>
             </div>
             <div class="seat-name">{{ getPlayerBySeat('west').nickname }}</div>
           </template>
@@ -151,8 +146,8 @@ async function confirmStart() {
         <div class="seat-slot east" :class="{ active: swapFirst === 'east', swapping: swapMode }"
           @click="handleSeatClick('east')">
           <template v-if="getPlayerBySeat('east')">
-            <div class="seat-avatar" :style="{ background: getAvatar(getPlayerBySeat('east')) }">
-              {{ getPlayerBySeat('east').nickname.charAt(0) }}
+            <div class="seat-avatar" :style="getAvatarStyle(getPlayerBySeat('east'))">
+              <span v-if="showAvatarLetter(getPlayerBySeat('east'))">{{ getPlayerBySeat('east').nickname.charAt(0) }}</span>
             </div>
             <div class="seat-name">{{ getPlayerBySeat('east').nickname }}</div>
           </template>
@@ -163,8 +158,8 @@ async function confirmStart() {
         <div class="seat-slot south" :class="{ active: swapFirst === 'south', swapping: swapMode }"
           @click="handleSeatClick('south')">
           <template v-if="getPlayerBySeat('south')">
-            <div class="seat-avatar" :style="{ background: getAvatar(getPlayerBySeat('south')) }">
-              {{ getPlayerBySeat('south').nickname.charAt(0) }}
+            <div class="seat-avatar" :style="getAvatarStyle(getPlayerBySeat('south'))">
+              <span v-if="showAvatarLetter(getPlayerBySeat('south'))">{{ getPlayerBySeat('south').nickname.charAt(0) }}</span>
             </div>
             <div class="seat-name">{{ getPlayerBySeat('south').nickname }}</div>
           </template>
@@ -208,6 +203,7 @@ async function confirmStart() {
   width: 48px; height: 48px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 20px; font-weight: 700;
+  overflow: hidden;
 }
 .seat-name { font-size: 14px; font-weight: 600; }
 .seat-label { font-size: 12px; color: var(--text-secondary); }

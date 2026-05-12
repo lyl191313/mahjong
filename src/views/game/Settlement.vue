@@ -26,6 +26,7 @@ onMounted(async () => {
     return {
       playerId: s.playerId,
       nickname: gp?.players?.nickname || '未知',
+      avatar: gp?.players?.avatar ?? null,
       seat: gp?.seat || '',
       score: s.score,
       isReplaced: gp?.is_replaced || false,
@@ -62,12 +63,6 @@ const settlement = computed(() => {
     return { ...p, amount: Math.round(amount * 100) / 100 }
   })
 })
-
-function getAvatar(player) {
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  const idx = player.nickname.charCodeAt(0) % colors.length
-  return colors[idx]
-}
 
 async function submit() {
   if (submitting.value) return

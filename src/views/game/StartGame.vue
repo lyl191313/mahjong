@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayersStore } from '../../stores/players.js'
 import { useGameStore } from '../../stores/game.js'
+import { getAvatarStyle, showAvatarLetter } from '../../lib/avatarDisplay.js'
 
 const router = useRouter()
 const playersStore = usePlayersStore()
@@ -34,12 +35,6 @@ function toggleSelect(player) {
     if (selected.value.length >= 4) return
     selected.value.push(player.id)
   }
-}
-
-function getAvatar(player) {
-  const colors = ['#4361ee', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
-  const idx = player.nickname.charCodeAt(0) % colors.length
-  return colors[idx]
 }
 
 function selectedPlayers() {
@@ -88,8 +83,8 @@ async function startGame() {
           <div class="check-box" :class="{ checked: isSelected(player) }">
             <span v-if="isSelected(player)">&#10003;</span>
           </div>
-          <div class="avatar" :style="{ background: getAvatar(player) }">
-            {{ player.nickname.charAt(0) }}
+          <div class="avatar" :style="getAvatarStyle(player)">
+            <span v-if="showAvatarLetter(player)">{{ player.nickname.charAt(0) }}</span>
           </div>
           <div class="player-detail">
             <div class="player-name">{{ player.nickname }}</div>
@@ -152,6 +147,7 @@ async function startGame() {
   width: 40px; height: 40px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 16px; font-weight: 700; flex-shrink: 0;
+  overflow: hidden;
 }
 .player-detail { min-width: 0; }
 .player-name { font-weight: 600; font-size: 15px; }
