@@ -1,16 +1,22 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../../lib/supabase.js";
 import { getTier, TIER_RULES } from "../../lib/tier.js";
+import { getDataDrivenFortune } from "../../lib/fortune.js";
 
 const loading = ref(true);
 const players = ref([]);
 const activeTab = ref("score");
 const showDetail = ref(false);
 const detailPlayer = ref(null);
+const detailRecentGames = ref([]);
+const detailRecentLoading = ref(false);
+
+const fortunePlayerId = ref(null);
+const fortuneRecentRows = ref([]);
+const fortuneRecentLoading = ref(false);
 
 const seatLabels = { east: "东", south: "南", west: "西", north: "北" };
-const seatKeys = ["east", "south", "west", "north"];
 
 const tabs = [
   { key: "score", label: "总分" },
@@ -19,14 +25,78 @@ const tabs = [
   { key: "expense", label: "收益" },
 ];
 
+const todayKey = computed(() => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+});
+
+const fortunePlayer = computed(() =>
+  players.value.find((p) => p.id === fortunePlayerId.value)
+);
+
+const fortune = computed(() => {
+  const p = fortunePlayer.value;
+  if (!p) return null;
+  return getDataDrivenFortune({
+    player: p,
+    recentGames: fortuneRecentRows.value.map((r) => ({
+      score: Number(r.score) || 0,
+      settlement_amount: r.settlement_amount,
+      seat: r.seat,
+    })),
+    dateKey: todayKey.value,
+  });
+});
+
+async function loadRecentFinishedGames(playerId, limit = 5) {
+  if (!playerId) return [];
+  const { data, error } = await supabase
+    .from("game_players")
+    .select("score, settlement_amount, seat, games!inner(id, ended_at, status)")
+    .eq("player_id", playerId)
+    .eq("games.status", "finished");
+  if (error) return [];
+  return (data || [])
+    .filter((r) => r.games?.ended_at)
+    .sort(
+      (a, b) =>
+        new Date(b.games.ended_at).getTime() -
+        new Date(a.games.ended_at).getTime()
+    )
+    .slice(0, limit);
+}
+
+async function refreshFortuneRecent() {
+  const pid = fortunePlayerId.value;
+  if (!pid) {
+    fortuneRecentRows.value = [];
+    return;
+  }
+  fortuneRecentLoading.value = true;
+  fortuneRecentRows.value = await loadRecentFinishedGames(pid, 5);
+  fortuneRecentLoading.value = false;
+}
+
 onMounted(async () => {
   const { data } = await supabase
     .from("players")
     .select("*")
     .eq("is_deleted", false);
   players.value = data || [];
+  if (players.value.length) fortunePlayerId.value = players.value[0].id;
   loading.value = false;
 });
+
+watch(
+  fortunePlayerId,
+  () => {
+    refreshFortuneRecent();
+  },
+  { immediate: true }
+);
 
 const rankedPlayers = computed(() => {
   const list = [...players.value];
@@ -88,22 +158,60 @@ function getMedal(index) {
   return index + 1;
 }
 
-function openDetail(player) {
+async function openDetail(player) {
   if (activeTab.value !== "record") return;
   detailPlayer.value = player;
   showDetail.value = true;
+  detailRecentLoading.value = true;
+  detailRecentGames.value = [];
+  detailRecentGames.value = await loadRecentFinishedGames(player.id, 5);
+  detailRecentLoading.value = false;
 }
 
-function getSeatStat(player, seat) {
-  const d = player.seat_win_rate?.[seat];
-  if (!d || !d.total) return { total: 0, rate: "0%" };
-  return { total: d.total, rate: Math.round((d.wins / d.total) * 100) + "%" };
+function formatGameDate(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatMoney(n) {
+  if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
+  const v = Number(n);
+  return (v >= 0 ? "+" : "") + v.toFixed(2) + " 元";
 }
 </script>
 
 <template>
   <div class="page">
     <h1 class="page-title">榜单S1</h1>
+
+    <div v-if="!loading && players.length" class="card fortune-card">
+      <div class="fortune-head">
+        <span class="fortune-title">今日运势</span>
+        <span class="fortune-date">{{ todayKey }}</span>
+      </div>
+      <label class="fortune-field-label" for="fortune-player-select">选择人物</label>
+      <select
+        id="fortune-player-select"
+        v-model="fortunePlayerId"
+        class="input fortune-field-select"
+      >
+        <option v-for="p in players" :key="p.id" :value="p.id">
+          {{ p.nickname }}
+        </option>
+      </select>
+      <p v-if="fortuneRecentLoading" class="fortune-sync">正在同步近期战绩…</p>
+      <template v-if="fortune">
+        <div class="fortune-level">
+          <span class="fortune-label-text">{{ fortune.level }}</span>
+          <span class="fortune-stars">{{ "★".repeat(fortune.stars) }}{{ "☆".repeat(5 - fortune.stars) }}</span>
+        </div>
+        <p class="fortune-mood">{{ fortune.mood }} · 幸运方位「{{ fortune.luckySeat }}」· 吉利数 {{ fortune.luckyNum }}</p>
+        <p class="fortune-tip">{{ fortune.tip }}</p>
+        <p v-if="fortune.dataHint" class="fortune-data-hint">{{ fortune.dataHint }}</p>
+        <p class="fortune-disclaimer">根据生涯与近 5 场已结束对局生成，仅供娱乐</p>
+      </template>
+    </div>
 
     <div class="tab-switch">
       <button
@@ -188,32 +296,45 @@ function getSeatStat(player, seat) {
       @click.self="showDetail = false"
     >
       <div class="modal">
-        <h3 class="modal-title">{{ detailPlayer.nickname }} 的方位战绩</h3>
+        <h3 class="modal-title">{{ detailPlayer.nickname }} 的最近对局</h3>
         <div class="detail-summary">
-          总计 {{ detailPlayer.total_games || 0 }} 局，胜率
+          生涯 {{ detailPlayer.total_games || 0 }} 局，胜率
           {{
             detailPlayer.total_games
               ? Math.round(
                   (detailPlayer.win_games / detailPlayer.total_games) * 100
                 )
               : 0
-          }}%
+          }}% · 下列为最近 5 场已结束对局
         </div>
-        <div class="seat-stats">
-          <div v-for="seat in seatKeys" :key="seat" class="seat-stat-row">
-            <span class="seat-label">{{ seatLabels[seat] }}</span>
-            <span class="seat-games"
-              >{{ getSeatStat(detailPlayer, seat).total }} 局</span
-            >
-            <div class="seat-bar-wrap">
-              <div
-                class="seat-bar"
-                :style="{ width: getSeatStat(detailPlayer, seat).rate }"
-              ></div>
+        <div v-if="detailRecentLoading" class="detail-recent-loading">加载中...</div>
+        <div v-else-if="detailRecentGames.length === 0" class="detail-recent-empty">
+          暂无已结束对局记录
+        </div>
+        <div v-else class="recent-games">
+          <div
+            v-for="(row, idx) in detailRecentGames"
+            :key="row.games?.id ?? idx"
+            class="recent-game-row"
+          >
+            <div class="recent-game-top">
+              <span class="recent-date">{{ formatGameDate(row.games?.ended_at) }}</span>
+              <span
+                class="recent-result"
+                :class="{ win: row.score > 0, lose: row.score < 0, draw: row.score === 0 }"
+              >
+                {{ row.score > 0 ? "胜" : row.score < 0 ? "负" : "平" }}
+              </span>
             </div>
-            <span class="seat-rate">{{
-              getSeatStat(detailPlayer, seat).rate
-            }}</span>
+            <div class="recent-game-meta">
+              <span>{{ seatLabels[row.seat] || "—" }}家</span>
+              <span class="recent-score" :class="{ win: row.score > 0, lose: row.score < 0 }">
+                {{ row.score > 0 ? "+" : "" }}{{ row.score ?? 0 }} 分
+              </span>
+              <span class="recent-money" :class="{ pos: (row.settlement_amount || 0) >= 0, neg: (row.settlement_amount || 0) < 0 }">
+                本场 {{ formatMoney(row.settlement_amount) }}
+              </span>
+            </div>
           </div>
         </div>
         <div class="modal-actions">
@@ -254,6 +375,146 @@ function getSeatStat(player, seat) {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+.fortune-card {
+  margin-bottom: 16px;
+}
+.fortune-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.fortune-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.fortune-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.fortune-field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.fortune-field-select {
+  margin-bottom: 10px;
+}
+.fortune-sync {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+.fortune-data-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+.fortune-level {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.fortune-label-text {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.fortune-stars {
+  color: #f59e0b;
+  letter-spacing: 2px;
+  font-size: 14px;
+}
+.fortune-mood {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.fortune-tip {
+  font-size: 14px;
+  margin: 0 0 8px;
+  line-height: 1.55;
+}
+.fortune-disclaimer {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0;
+}
+.detail-recent-loading,
+.detail-recent-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.recent-games {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.recent-game-row {
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.recent-game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.recent-date {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.recent-result {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #64748b;
+}
+.recent-result.win {
+  background: #dcfce7;
+  color: #15803d;
+}
+.recent-result.lose {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.recent-result.draw {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.recent-game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 13px;
+  align-items: center;
+}
+.recent-score.win {
+  color: var(--success);
+  font-weight: 700;
+}
+.recent-score.lose {
+  color: var(--danger);
+  font-weight: 700;
+}
+.recent-money.pos {
+  color: var(--success);
+  font-weight: 600;
+}
+.recent-money.neg {
+  color: var(--danger);
+  font-weight: 600;
 }
 .rank-card {
   display: flex;
@@ -384,54 +645,6 @@ function getSeatStat(player, seat) {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 16px;
-}
-.seat-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.seat-stat-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.seat-label {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--primary-light);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.seat-games {
-  font-size: 13px;
-  color: var(--text-secondary);
-  width: 36px;
-  text-align: right;
-}
-.seat-bar-wrap {
-  flex: 1;
-  height: 8px;
-  background: #f1f5f9;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.seat-bar {
-  height: 100%;
-  background: var(--primary);
-  border-radius: 4px;
-  transition: width 0.3s;
-}
-.seat-rate {
-  font-size: 13px;
-  font-weight: 700;
-  width: 36px;
-  text-align: right;
 }
 .loading {
   text-align: center;
