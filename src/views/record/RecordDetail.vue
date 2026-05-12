@@ -45,10 +45,16 @@ function formatDate(dateStr) {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// 结算明细计算
-const totalWinScore = computed(() => activePlayers.value.filter(p => p.score > 0).reduce((s, p) => s + p.score, 0))
+// 与 finishGame 一致：总赢分为所有参与者中正分之和；优先用库字段（与页上「总赢分」一致）
+const totalWinScore = computed(() => {
+  const g = game.value
+  if (g?.status === 'finished' && g.total_win_score != null) {
+    return Number(g.total_win_score) || 0
+  }
+  return gamePlayers.value.reduce((s, p) => s + ((p.score || 0) > 0 ? p.score : 0), 0)
+})
 const totalWinAmount = computed(() => totalWinScore.value * 5)
-const distributable = computed(() => totalWinAmount.value - (game.value?.meal_cost || 0))
+const distributable = computed(() => totalWinAmount.value - (Number(game.value?.meal_cost) || 0))
 
 const ratioInfo = computed(() => {
   const s = distributable.value
